@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>pause</title>
+<style>
+@font-face {
+  font-family: 'Spectral';
+  src: url('spectral-light.ttf') format('truetype');
+  font-weight: 300;
+  font-display: block;
+}
+
+/* The ground is petrol, not black. The field is a duet: amber on the inhale,
+   slate on the exhale, so the temperature of the screen breathes with you. */
+:root {
+  --ink:   #060a10;
+  --bone:  #f4ece0;
+  --amber: #f0d9a8;
+  --slate: #7fa6a8;
+  --dim:   #4a5566;
+  --mono:  ui-monospace, SFMono-Regular, Menlo, monospace;
+  --edge:  clamp(22px, 3.4vw, 56px);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { height: 100%; overflow: hidden; }
+body {
+  background: var(--ink);
+  color: var(--bone);
+  font-family: 'Spectral', Georgia, serif;
+  font-weight: 300;
+  -webkit-font-smoothing: antialiased;
+  cursor: none;
+  user-select: none;
+}
+
+#field { position: fixed; inset: 0; z-index: 0; display: block; }
+
+/* Vignette pulls the eye to the centre and keeps the type off the field. */
+.vig {
+  position: fixed; inset: 0; z-index: 1; pointer-events: none;
+  background: radial-gradient(105% 82% at 50% 46%, transparent 14%, rgba(3,5,9,0.58) 58%, rgba(3,5,9,0.97) 100%);
+}
+
+.band {
+  position: fixed; left: 0; right: 0; top: 26%; height: 42%;
+  z-index: 1; pointer-events: none;
+  background: linear-gradient(180deg, rgba(4,7,12,0) 0%, rgba(4,7,12,0.55) 34%,
+                                      rgba(4,7,12,0.55) 66%, rgba(4,7,12,0) 100%);
+}
+
+.stage {
+  position: fixed; inset: 0; z-index: 2;
+  display: grid; place-content: center;
+  padding: 0 var(--edge);
+  text-align: center;
+}
+
+.line {
+  max-width: min(88vw, 980px);
+  font-size: clamp(1.9rem, 3.9vw, 3.9rem);
+  line-height: 1.16;
+  letter-spacing: -0.022em;
+  text-wrap: balance;
+}
+
+/* Each word arrives on its own, out of blur. One orchestrated entrance is the
+   whole motion budget for the type. */
+.w {
+  display: inline-block;
+  opacity: 0;
+  filter: blur(10px);
+  transform: translateY(15px);
+  transition: opacity 1.25s cubic-bezier(.16,1,.3,1),
+              filter 1.4s cubic-bezier(.16,1,.3,1),
+              transform 1.4s cubic-bezier(.16,1,.3,1);
+}
+.w.in { opacity: .94; filter: blur(0); transform: none; }
+
+.who {
+  margin-top: clamp(22px, 3.2vh, 40px);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.30em;
+  text-transform: uppercase;
+  color: var(--amber);
+  opacity: 0;
+  transition: opacity 1.6s ease 0.2s;
+}
+.who.in { opacity: .34; }
+
+/* The breath cue is a word, not a ring. A body follows a word without
+   translating a graphic first. It sits with the line so the centre reads as
+   one block rather than two things floating in a void. */
+.breath {
+  margin-top: clamp(30px, 4.6vh, 58px);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: var(--slate);
+  opacity: 0;
+  transition: opacity .9s ease;
+}
+.breath.in { opacity: .62; }
+.breath span { display: inline-block; transition: opacity .8s ease; }
+
+/* The mark is real data, not decoration: which pause of the day this is, and
+   the hour it interrupted. It gives the composition its off-centre weight. */
+.mark {
+  position: fixed; left: var(--edge); bottom: calc(var(--edge) * 0.9);
+  z-index: 2;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--dim);
+  opacity: 0;
+  transition: opacity 1.6s ease 1.4s;
+}
+.mark.in { opacity: .62; }
+.mark i { font-style: normal; color: var(--amber); opacity: .5; }
+
+/* The escape only appears once the pause has had its first ten seconds. */
+.esc {
+  position: fixed; right: var(--edge); bottom: calc(var(--edge) * 0.9);
+  z-index: 2;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.26em;
+  text-transform: uppercase;
+  color: var(--dim);
+  opacity: 0;
+  transition: opacity 1.4s ease;
+}
+.esc.in { opacity: .5; }
+.esc b { font-weight: 400; color: var(--amber); opacity: .55; }
+
+/* Progress as architecture: a full-bleed hairline on the very edge of the
+   screen, not a bar in a box. */
+.rule {
+  position: fixed; left: 0; bottom: 0; height: 1px; width: 0;
+  z-index: 3;
+  background: linear-gradient(90deg, rgba(240,217,168,0) 0%, rgba(240,217,168,.55) 88%, rgba(240,217,168,.8) 100%);
+  will-change: width;
+}
+
+body.out { transition: opacity .85s ease, filter .85s ease; opacity: 0; filter: blur(14px); }
+
+@media (prefers-reduced-motion: reduce) {
+  .w { transition-duration: .01ms; }
+}
+</style>
+</head>
+<body>
+<canvas id="field"></canvas>
+<div class="vig"></div>
+<div class="band"></div>
+
+<main class="stage">
+  <p class="line" id="line"></p>
+  <p class="who" id="who"></p>
+  <p class="breath" id="breath"><span id="cue">breathe in</span></p>
+</main>
+
+<div class="mark" id="mark"></div>
+<div class="esc" id="esc">hold <b>esc</b> to leave</div>
+<div class="rule" id="rule"></div>
+
+<script>
+const HOLD = 20;          // seconds the pause lasts
+const CYCLE = [4, 2, 6];  // in, hold, out — a 12s breath
+const params = new URLSearchParams(location.search);
+const LINE = params.get('line') || 'Be here now.';
+const WHO  = params.get('who')  || '';
+const NTH  = params.get('n')    || '';   // which pause of the day this is
+
+/* ---------------------------------------------------------------- the field
+   A domain-warped fbm, not a fluid sim. The numinous fluid solver is driven by
+   the cursor and we ignore every input, so an agitated solver would sit flat.
+   A warped noise field at breath tempo actually moves the way slow ink does.  */
+const canvas = document.getElementById('field');
+const gl = canvas.getContext('webgl', { antialias: false, alpha: false });
+
+const VERT = `
+attribute vec2 p;
+void main(){ gl_Position = vec4(p, 0.0, 1.0); }`;
+
+const FRAG = `
+precision highp float;
+uniform vec2  uRes;
+uniform float uTime;   // seconds
+uniform float uB;      // breath 0..1, 0 = emptied, 1 = full
+uniform float uIn;     // entrance 0..1
+
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1,0)), u.x),
+             mix(hash(i + vec2(0,1)), hash(i + vec2(1,1)), u.x), u.y);
+}
+
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for (int i = 0; i < 5; i++){
+    v += a * noise(p);
+    p = p * 2.02 + vec2(37.0, 17.0);
+    a *= 0.5;
+  }
+  return v;
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes;
+  vec2 p = (gl_FragCoord.xy - 0.5 * uRes) / uRes.y;
+
+  float t = uTime * 0.045;
+
+  // Two warps. One is enough to look like noise; two is what makes it look
+  // like something suspended in water.
+  vec2 q = vec2(fbm(p * 1.6 + t), fbm(p * 1.6 + vec2(5.2, 1.3) - t));
+  vec2 r = vec2(fbm(p * 1.9 + 3.4 * q + vec2(1.7, 9.2) + t * 1.4),
+                fbm(p * 1.9 + 3.4 * q + vec2(8.3, 2.8) - t * 1.1));
+  float f = fbm(p * 2.2 + 3.0 * r + t * 0.6);
+
+  // Temperature rides the breath. This is the whole idea: the screen is warm
+  // while you fill and cold while you empty, so the colour is the instruction.
+  vec3 ink   = vec3(0.024, 0.039, 0.063);
+  vec3 amber = vec3(1.000, 0.702, 0.404);
+  vec3 slate = vec3(0.161, 0.478, 0.573);
+  float temp = smoothstep(0.05, 0.98, uB);
+  vec3 tint  = mix(slate, amber, temp);
+
+  float body = pow(smoothstep(0.26, 0.88, f), 1.45);
+  float breathGain = 0.48 + 0.52 * uB;
+
+  // Hold it off the edges so the type never fights the field for contrast.
+  float centre = 1.0 - smoothstep(0.04, 0.80, length(p * vec2(0.68, 1.0)));
+
+  vec3 col = ink + tint * body * 0.36 * breathGain * centre;
+
+  // A second, much broader bloom so the middle has depth rather than a hole,
+  // and it leans the opposite temperature so the two never flatten into grey.
+  vec3 counter = mix(amber, slate, temp);
+  col += counter * 0.055 * (1.0 - 0.5 * breathGain) * pow(centre, 2.2);
+  col += tint * 0.075 * breathGain * pow(centre, 3.0);
+
+  // Grain. Real film-weight, otherwise the gradients band on a wide display.
+  float g = hash(gl_FragCoord.xy + fract(uTime) * 91.7) - 0.5;
+  col += g * 0.020;
+
+  col *= uIn;
+  gl_FragColor = vec4(col, 1.0);
+}`;
+
+function shader(type, src){
+  const s = gl.createShader(type);
+  gl.shaderSource(s, src);
+  gl.compileShader(s);
+  if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) console.error(gl.getShaderInfoLog(s));
+  return s;
+}
+
+const prog = gl.createProgram();
+gl.attachShader(prog, shader(gl.VERTEX_SHADER, VERT));
+gl.attachShader(prog, shader(gl.FRAGMENT_SHADER, FRAG));
+gl.linkProgram(prog);
+gl.useProgram(prog);
+
+const buf = gl.createBuffer();
+gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 3,-1, -1,3]), gl.STATIC_DRAW);
+const loc = gl.getAttribLocation(prog, 'p');
+gl.enableVertexAttribArray(loc);
+gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+
+const uRes = gl.getUniformLocation(prog, 'uRes');
+const uTime = gl.getUniformLocation(prog, 'uTime');
+const uB = gl.getUniformLocation(prog, 'uB');
+const uIn = gl.getUniformLocation(prog, 'uIn');
+
+function resize(){
+  // Half-res is plenty for a field this soft and keeps a 5K display honest.
+  const d = Math.min(window.devicePixelRatio || 1, 1.5);
+  canvas.width = Math.floor(innerWidth * d);
+  canvas.height = Math.floor(innerHeight * d);
+  canvas.style.width = innerWidth + 'px';
+  canvas.style.height = innerHeight + 'px';
+  gl.viewport(0, 0, canvas.width, canvas.height);
+}
+addEventListener('resize', resize);
+resize();
+
+/* ------------------------------------------------------------------- breath */
+const [IN, HOLDB, OUT] = CYCLE;
+const SPAN = IN + HOLDB + OUT;
+
+const FORCE = params.get('b');   // design hook: pin the breath to tune a pole
+
+function breath(t){
+  if (FORCE !== null) return parseFloat(FORCE);
+  const p = t % SPAN;
+  let e;
+  if (p < IN) e = p / IN;
+  else if (p < IN + HOLDB) e = 1;
+  else e = 1 - (p - IN - HOLDB) / OUT;
+  return 0.5 - 0.5 * Math.cos(e * Math.PI); // ease so it never snaps at the turn
+}
+
+function cueFor(t){
+  const p = t % SPAN;
+  if (p < IN) return 'breathe in';
+  if (p < IN + HOLDB) return 'hold';
+  return 'breathe out';
+}
+
+/* ------------------------------------------------------------------- the type */
+const lineEl = document.getElementById('line');
+LINE.split(/\s+/).forEach((word, i) => {
+  const s = document.createElement('span');
+  s.className = 'w';
+  s.textContent = word;
+  s.style.transitionDelay = (0.55 + i * 0.065) + 's';
+  lineEl.append(s, document.createTextNode(' '));
+});
+const whoEl = document.getElementById('who');
+if (WHO) whoEl.textContent = WHO;
+
+const cue = document.getElementById('cue');
+const breathEl = document.getElementById('breath');
+const escEl = document.getElementById('esc');
+const rule = document.getElementById('rule');
+
+const now = new Date();
+const clock = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0');
+const markEl = document.getElementById('mark');
+markEl.innerHTML = (NTH ? `pause <i>${String(NTH).padStart(2, '0')}</i> &nbsp;·&nbsp; ` : '') + clock;
+
+// Flush layout so the transition has a start value, then reveal. Not rAF:
+// a window that has not been made key yet never gets a frame, and the line
+// would sit invisible for the whole pause.
+void lineEl.offsetHeight;
+document.querySelectorAll('.w').forEach(w => w.classList.add('in'));
+if (WHO) whoEl.classList.add('in');
+markEl.classList.add('in');
+setTimeout(() => breathEl.classList.add('in'), 2600);
+setTimeout(() => escEl.classList.add('in'), 10000);
+
+/* ------------------------------------------------------------------- loop */
+const t0 = performance.now();
+let lastCue = '';
+
+function frame(now){
+  const t = (now - t0) / 1000;
+  const b = breath(t);
+
+  gl.uniform2f(uRes, canvas.width, canvas.height);
+  gl.uniform1f(uTime, t);
+  gl.uniform1f(uB, b);
+  gl.uniform1f(uIn, Math.min(t / 1.6, 1));
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+  rule.style.width = Math.min(t / HOLD, 1) * 100 + 'vw';
+
+  const c = cueFor(t);
+  if (c !== lastCue) {
+    lastCue = c;
+    cue.style.opacity = 0;
+    setTimeout(() => { cue.textContent = c; cue.style.opacity = 1; }, 420);
+  }
+
+  if (t < HOLD + 2) requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+// Swift owns dismissal so the timing survives a stalled render; this only
+// tells it we reached the end.
+setTimeout(() => {
+  document.body.classList.add('out');
+  window.webkit?.messageHandlers?.pause?.postMessage('done');
+}, HOLD * 1000);
+
+window.leave = () => {
+  document.body.classList.add('out');
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "conscious",
+  "owner": { "name": "Abhay Mettu" },
+  "plugins": [
+    {
+      "name": "conscious",
+      "source": "./",
+      "description": "A full-screen twenty-second pause that fires at random intervals, to interrupt autopilot."
+    }
+  ]
+}

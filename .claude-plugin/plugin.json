@@ -1,0 +1,8 @@
+{
+  "name": "conscious",
+  "version": "0.1.0",
+  "description": "A full-screen twenty-second pause that fires at random intervals, to interrupt autopilot.",
+  "author": { "name": "Abhay Mettu" },
+  "homepage": "https://github.com/abhaymettu/conscious",
+  "keywords": ["mindfulness", "focus", "macos", "presence", "break", "attention"]
+}

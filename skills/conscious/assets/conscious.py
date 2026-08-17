@@ -113,6 +113,12 @@ def generate(n, angle, c):
 
     # Everything the user told the agent at setup, folded in. A line that knows
     # what this person is actually caught in beats a well-written general one.
+    # A list of voices is drawn from per batch, so the register never settles
+    # into one the reader can pre-dismiss.
+    voice = c["voice"]
+    if isinstance(voice, list) and voice:
+        voice = random.choice(voice)
+
     who = f"\nWho this is for: {c['about']}\n" if c["about"] else ""
     themes = (f"Come back to what they keep getting lost in: "
               f"{', '.join(c['themes'])}.\n") if c["themes"] else ""
@@ -124,7 +130,7 @@ It is {datetime.now():%H:%M}. They have been feeding on input for the last hour 
 noticing. The screen goes dark, everything stops for twenty seconds, and one of these
 lines is all that is on it. Angle for this batch: {angle}.
 {who}{themes}
-Voice: {c['voice']}. Match the register of these:
+Voice: {voice}. Match the register of these:
 {chr(10).join('- ' + e for e in examples[:8])}
 
 Rules: one sentence each, second person, under fifteen words. No exclamation marks,

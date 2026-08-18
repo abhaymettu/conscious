@@ -14,6 +14,19 @@ let FADE_OUT: Double = 0.9
 let ESC_HOLD: Double = 3.0   // hold Esc this long to leave early
 let SAFETY: Double = HOLD + 6 // never trap the screen if the page stalls
 
+// A borderless NSWindow returns canBecomeKey == false by default, so
+// makeKeyAndOrderFront is a no-op on one and the app never gets a key window.
+// The window server routes a physical keypress to the key window of the active
+// app, so with none it fell through to whatever the user was in before. That
+// broke both halves of the keyboard contract, the Esc hold to leave early and
+// the swallowing of every other key, and it hid well: synthetic CGEvents are
+// routed to the frontmost process instead, so injected keys worked fine while
+// a real finger on the key did nothing.
+final class KeyWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { true }
+}
+
 final class Controller: NSObject, NSApplicationDelegate, WKScriptMessageHandler {
     var windows: [NSWindow] = []
     var webs: [WKWebView] = []
@@ -50,8 +63,8 @@ final class Controller: NSObject, NSApplicationDelegate, WKScriptMessageHandler 
         let dir = url.deletingLastPathComponent()
 
         for screen in NSScreen.screens {
-            let w = NSWindow(contentRect: screen.frame, styleMask: .borderless,
-                             backing: .buffered, defer: false, screen: screen)
+            let w = KeyWindow(contentRect: screen.frame, styleMask: .borderless,
+                              backing: .buffered, defer: false, screen: screen)
             w.level = .screenSaver
             w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary, .ignoresCycle]
             w.isOpaque = false
